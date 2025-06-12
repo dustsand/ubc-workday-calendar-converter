@@ -150,63 +150,29 @@
             margin-left: 15px;
         }
 
-        .options-section {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-        }
-
-        .options-title {
-            font-size: 1.3em;
-            color: #333;
-            margin-bottom: 20px;
-            font-weight: 600;
-        }
-
-        .option-card {
-            background: #f8f9fa;
-            border: 2px solid #e9ecef;
-            border-radius: 15px;
-            padding: 20px;
-            margin: 15px 0;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .option-card:hover {
-            border-color: #667eea;
-            background: #f0f4ff;
-            transform: translateY(-2px);
-        }
-
-        .option-icon {
-            font-size: 2em;
-            margin-bottom: 10px;
-        }
-
-        .option-title {
+        .download-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
             font-size: 1.1em;
             font-weight: 600;
-            color: #333;
-            margin-bottom: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
         }
 
-        .option-description {
-            color: #666;
-            font-size: 0.9em;
-            margin-bottom: 8px;
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
         }
 
-        .option-compatibility {
-            color: #28a745;
-            font-size: 0.85em;
-            font-weight: 500;
-        }
-
-        .option-warning {
-            color: #dc3545;
-            font-size: 0.85em;
-            font-weight: 500;
+        .download-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
 
         .hidden {
@@ -224,7 +190,7 @@
             }
         }
 
-        .status, .options-section {
+        .status {
             animation: slideIn 0.5s ease;
         }
     </style>
@@ -244,25 +210,7 @@
         
         <div id="status" class="hidden"></div>
         <div id="courseList" class="hidden"></div>
-        
-        <div id="optionsSection" class="options-section hidden">
-            <div class="options-title">Choose how to get your calendar:</div>
-            
-            <div class="option-card" id="downloadOption">
-                <div class="option-icon">📥</div>
-                <div class="option-title">Download Calendar File</div>
-                <div class="option-description">Save the .ics file to your device</div>
-                <div class="option-compatibility">✅ Works on: Desktop, Android</div>
-                <div class="option-warning">❌ Doesn't work directly on iPhone</div>
-            </div>
-            
-            <div class="option-card" id="emailOption">
-                <div class="option-icon">📧</div>
-                <div class="option-title">Email Calendar to Yourself</div>
-                <div class="option-description">Downloads file + opens email with instructions</div>
-                <div class="option-compatibility">✅ Best for iPhone - guides you through the process</div>
-            </div>
-        </div>
+        <button id="downloadBtn" class="download-btn hidden" disabled>Download Calendar (.ics)</button>
     </div>
 
     <script>
@@ -273,9 +221,7 @@
         const fileInput = document.getElementById('fileInput');
         const statusDiv = document.getElementById('status');
         const courseListDiv = document.getElementById('courseList');
-        const optionsSection = document.getElementById('optionsSection');
-        const downloadOption = document.getElementById('downloadOption');
-        const emailOption = document.getElementById('emailOption');
+        const downloadBtn = document.getElementById('downloadBtn');
 
         // Drag and drop
         uploadArea.addEventListener('dragover', (e) => {
@@ -501,7 +447,8 @@
                 
                 showStatus(`Successfully processed ${courses.length} courses with ${allEvents.length} calendar events!`, 'success');
                 
-                optionsSection.classList.remove('hidden');
+                downloadBtn.disabled = false;
+                downloadBtn.classList.remove('hidden');
                 
             } catch (error) {
                 console.error('Error processing file:', error);
@@ -509,55 +456,66 @@
             }
         }
 
-        // Download option
-        downloadOption.addEventListener('click', () => {
-            if (!calendarData) return;
+        downloadBtn.addEventListener('click', () => {
+            if (!calendarData) {
+                showStatus('No calendar data available. Please upload a file first.', 'error');
+                return;
+            }
             
-            const blob = new Blob([calendarData], { type: 'text/calendar' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'my-course-schedule.ics';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            showStatus('Calendar file downloaded! Import it to your calendar app.', 'success');
-        });
-
-        // Email option
-        emailOption.addEventListener('click', () => {
-            if (!calendarData) return;
-            
-            // First, download the file
-            const blob = new Blob([calendarData], { type: 'text/calendar' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'my-course-schedule.ics';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            // Then open email with instructions
-            setTimeout(() => {
-                const subject = encodeURIComponent('My Course Schedule');
-                const body = encodeURIComponent(`Here's my course schedule calendar file!
-
-I've downloaded the file to my device. Now I'm attaching it to this email.
-
-On iPhone: Tap the attached .ics file and choose "Add All"
-On other devices: Import the .ics file into your calendar app
-
-The file should be in my Downloads folder as: my-course-schedule.ics`);
+            try {
+                // Try the standard download approach first
+                const blob = new Blob([calendarData], { type: 'text/calendar;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'my-course-schedule.ics';
+                a.style.display = 'none';
+                document.body.appendChild(a);
                 
-                const mailtoLink = `mailto:?subject=${subject}&body=${body}`;
-                window.location.href = mailtoLink;
-            }, 500);
-            
-            showStatus('Calendar file downloaded! Email app opening with instructions - attach the downloaded file and send to yourself.', 'info');
+                // Force click and cleanup
+                a.click();
+                
+                // Cleanup after a delay
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+                
+                showStatus('Calendar file downloaded! Check your Downloads folder, then import to your calendar app.', 'success');
+                
+            } catch (error) {
+                console.error('Download failed:', error);
+                
+                // Fallback: show the data in a new window/tab
+                const dataUrl = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(calendarData);
+                const newWindow = window.open(dataUrl, '_blank');
+                
+                if (newWindow) {
+                    showStatus('Calendar opened in new tab. Right-click and "Save As" to download the .ics file.', 'info');
+                } else {
+                    // Final fallback: show the raw data
+                    showStatus('Download blocked by browser. Copying calendar data to show below - you can save it manually.', 'error');
+                    
+                    const textarea = document.createElement('textarea');
+                    textarea.value = calendarData;
+                    textarea.style.width = '100%';
+                    textarea.style.height = '200px';
+                    textarea.style.marginTop = '10px';
+                    textarea.style.fontFamily = 'monospace';
+                    textarea.style.fontSize = '12px';
+                    
+                    const instructions = document.createElement('div');
+                    instructions.innerHTML = '<strong>Manual Save Instructions:</strong><br>1. Copy all text below<br>2. Save as "my-schedule.ics"<br>3. Import to your calendar app';
+                    instructions.style.marginTop = '10px';
+                    instructions.style.padding = '10px';
+                    instructions.style.background = '#f0f0f0';
+                    instructions.style.borderRadius = '5px';
+                    
+                    statusDiv.appendChild(instructions);
+                    statusDiv.appendChild(textarea);
+                    textarea.select();
+                }
+            }
         });
     </script>
 </body>
