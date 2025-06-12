@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workday to Calendar Converter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+
+        .upload-area {
+            border: 3px dashed #ddd;
+            border-radius: 15px;
+            padding: 60px 20px;
+            margin: 30px 0;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            border-color: #667eea;
+            background: #f0f4ff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            color: #ddd;
+            margin-bottom: 20px;
+            transition: color 0.3s ease;
+        }
+
+        .upload-area:hover .upload-icon {
+            color: #667eea;
+        }
+
+        .upload-text {
+            font-size: 1.2em;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .upload-subtext {
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .course-list {
+            text-align: left;
+            margin: 20px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .course-item {
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .course-item:last-child {
+            border-bottom: none;
+        }
+
+        .course-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .course-schedule {
+            font-size: 0.9em;
+            color: #666;
+            margin-left: 15px;
+        }
+
+        .options-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .options-title {
+            font-size: 1.3em;
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .option-card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 15px 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .option-card:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+            transform: translateY(-2px);
+        }
+
+        .option-icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .option-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .option-description {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 8px;
+        }
+
+        .option-compatibility {
+            color: #28a745;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        .option-warning {
+            color: #dc3545;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .status, .options-section {
+            animation: slideIn 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📅 Course Calendar</h1>
+        <p class="subtitle">Convert your Workday course schedule to iPhone calendar</p>
+        
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-icon">📄</div>
+            <div class="upload-text">Drop your Excel file here</div>
+            <div class="upload-subtext">or click to browse</div>
+        </div>
+        
+        <input type="file" id="fileInput" accept=".xlsx,.xls" />
+        
+        <div id="status" class="hidden"></div>
+        <div id="courseList" class="hidden"></div>
+        
+        <div id="optionsSection" class="options-section hidden">
+            <div class="options-title">Choose how to get your calendar:</div>
+            
+            <div class="option-card" id="downloadOption">
+                <div class="option-icon">📥</div>
+                <div class="option-title">Download Calendar File</div>
+                <div class="option-description">Save the .ics file to your device</div>
+                <div class="option-compatibility">✅ Works on: Desktop, Android</div>
+                <div class="option-warning">❌ Doesn't work directly on iPhone</div>
+            </div>
+            
+            <div class="option-card" id="emailOption">
+                <div class="option-icon">📧</div>
+                <div class="option-title">Email Calendar to Yourself</div>
+                <div class="option-description">Downloads file + opens email with instructions</div>
+                <div class="option-compatibility">✅ Best for iPhone - guides you through the process</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let calendarData = null;
+
+        // File upload handling
+        const uploadArea = document.querySelector('.upload-area');
+        const fileInput = document.getElementById('fileInput');
+        const statusDiv = document.getElementById('status');
+        const courseListDiv = document.getElementById('courseList');
+        const optionsSection = document.getElementById('optionsSection');
+        const downloadOption = document.getElementById('downloadOption');
+        const emailOption = document.getElementById('emailOption');
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                processFile(e.target.files[0]);
+            }
+        });
+
+        function showStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.classList.remove('hidden');
+        }
+
+        function parseTimeString(timeStr) {
+            // Parse "1:00 p.m. - 4:00 p.m." format
+            const [startStr, endStr] = timeStr.split(' - ');
+            
+            function parseTime(str) {
+                const match = str.match(/(\d{1,2}):(\d{2})\s*(a\.m\.|p\.m\.)/i);
+                if (!match) return null;
+                
+                let [, hours, minutes, period] = match;
+                hours = parseInt(hours);
+                minutes = parseInt(minutes);
+                
+                if (period.toLowerCase().includes('p') && hours !== 12) {
+                    hours += 12;
+                } else if (period.toLowerCase().includes('a') && hours === 12) {
+                    hours = 0;
+                }
+                
+                return { hours, minutes };
+            }
+            
+            const startTime = parseTime(startStr);
+            const endTime = parseTime(endStr);
+            
+            return startTime && endTime ? { start: startTime, end: endTime } : null;
+        }
+
+        function parseDateString(dateStr) {
+            // Parse "2025-09-02" format
+            const [year, month, day] = dateStr.split('-').map(Number);
+            return new Date(year, month - 1, day);
+        }
+
+        function getDayOfWeek(dayStr) {
+            const days = {
+                'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6, 'Sun': 0
+            };
+            return days[dayStr];
+        }
+
+        function formatDate(date) {
+            return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        }
+
+        function generateRecurringEvents(startDate, endDate, daysOfWeek, startTime, endTime, courseName, location) {
+            const events = [];
+            const current = new Date(startDate);
+            
+            while (current <= endDate) {
+                if (daysOfWeek.includes(current.getDay())) {
+                    const eventStart = new Date(current);
+                    eventStart.setHours(startTime.hours, startTime.minutes, 0, 0);
+                    
+                    const eventEnd = new Date(current);
+                    eventEnd.setHours(endTime.hours, endTime.minutes, 0, 0);
+                    
+                    events.push({
+                        start: eventStart,
+                        end: eventEnd,
+                        title: courseName,
+                        location: location
+                    });
+                }
+                current.setDate(current.getDate() + 1);
+            }
+            
+            return events;
+        }
+
+        function parsePattern(pattern, courseName) {
+            const events = [];
+            
+            // Handle multi-period courses (split by \n\n)
+            const periods = pattern.split('\n\n');
+            
+            periods.forEach(period => {
+                const trimmedPeriod = period.trim();
+                
+                // Parse: "2025-09-02 - 2025-12-02 | Tue | 1:00 p.m. - 4:00 p.m. | WMAX-Floor 1-Room 110"
+                const parts = trimmedPeriod.split(' | ');
+                if (parts.length >= 4) {
+                    const [dateRange, daysStr, timeRange, location] = parts;
+                    
+                    // Parse date range
+                    const [startDateStr, endDateStr] = dateRange.split(' - ');
+                    const startDate = parseDateString(startDateStr.trim());
+                    const endDate = parseDateString(endDateStr.trim());
+                    
+                    // Parse days (handle multiple days like "Wed Fri")
+                    const dayStrings = daysStr.trim().split(' ');
+                    const daysOfWeek = dayStrings.map(getDayOfWeek).filter(day => day !== undefined);
+                    
+                    // Parse time
+                    const times = parseTimeString(timeRange.trim());
+                    
+                    if (startDate && endDate && daysOfWeek.length > 0 && times) {
+                        const recurringEvents = generateRecurringEvents(
+                            startDate, endDate, daysOfWeek, 
+                            times.start, times.end, courseName, location.trim()
+                        );
+                        events.push(...recurringEvents);
+                    }
+                }
+            });
+            
+            return events;
+        }
+
+        function generateICS(events) {
+            let ics = 'BEGIN:VCALENDAR\n';
+            ics += 'VERSION:2.0\n';
+            ics += 'PRODID:-//Workday Calendar Converter//EN\n';
+            ics += 'CALSCALE:GREGORIAN\n';
+            
+            events.forEach((event, index) => {
+                ics += 'BEGIN:VEVENT\n';
+                ics += `UID:${Date.now()}-${index}@workday-converter\n`;
+                ics += `DTSTART:${formatDate(event.start)}\n`;
+                ics += `DTEND:${formatDate(event.end)}\n`;
+                ics += `SUMMARY:${event.title}\n`;
+                ics += `LOCATION:${event.location}\n`;
+                ics += `DTSTAMP:${formatDate(new Date())}\n`;
+                ics += 'END:VEVENT\n';
+            });
+            
+            ics += 'END:VCALENDAR\n';
+            return ics;
+        }
+
+        async function processFile(file) {
+            try {
+                showStatus('Reading Excel file...', 'info');
+                
+                const arrayBuffer = await file.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer);
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                
+                // Extract course data from known positions
+                const courses = [];
+                const allEvents = [];
+                
+                for (let i = 4; i <= 14; i++) { // Rows 4-14 based on your data
+                    const courseNameCell = worksheet[`B${i}`];
+                    const patternCell = worksheet[`K${i}`];
+                    
+                    if (courseNameCell && courseNameCell.v) {
+                        const courseName = courseNameCell.v;
+                        const pattern = patternCell ? patternCell.v : null;
+                        
+                        courses.push({ courseName, pattern });
+                        
+                        if (pattern && pattern !== 'undefined') {
+                            const events = parsePattern(pattern, courseName);
+                            allEvents.push(...events);
+                        }
+                    }
+                }
+                
+                if (courses.length === 0) {
+                    showStatus('No courses found in the Excel file. Please check the file format.', 'error');
+                    return;
+                }
+                
+                calendarData = generateICS(allEvents);
+                
+                // Display courses
+                let courseListHTML = '<div class="course-list"><h3>Found Courses:</h3>';
+                courses.forEach(course => {
+                    courseListHTML += '<div class="course-item">';
+                    courseListHTML += `<div class="course-name">${course.courseName}</div>`;
+                    if (course.pattern && course.pattern !== 'undefined') {
+                        // Show simplified schedule
+                        const periods = course.pattern.split('\n\n');
+                        periods.forEach((period, index) => {
+                            const parts = period.trim().split(' | ');
+                            if (parts.length >= 3) {
+                                courseListHTML += `<div class="course-schedule">`;
+                                if (periods.length > 1) courseListHTML += `Period ${index + 1}: `;
+                                courseListHTML += `${parts[1]} ${parts[2]}</div>`;
+                            }
+                        });
+                    } else {
+                        courseListHTML += '<div class="course-schedule">No scheduled meetings</div>';
+                    }
+                    courseListHTML += '</div>';
+                });
+                courseListHTML += '</div>';
+                
+                courseListDiv.innerHTML = courseListHTML;
+                courseListDiv.classList.remove('hidden');
+                
+                showStatus(`Successfully processed ${courses.length} courses with ${allEvents.length} calendar events!`, 'success');
+                
+                optionsSection.classList.remove('hidden');
+                
+            } catch (error) {
+                console.error('Error processing file:', error);
+                showStatus('Error processing file. Please make sure it\'s a valid Workday Excel export.', 'error');
+            }
+        }
+
+        // Download option
+        downloadOption.addEventListener('click', () => {
+            if (!calendarData) return;
+            
+            const blob = new Blob([calendarData], { type: 'text/calendar' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'my-course-schedule.ics';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showStatus('Calendar file downloaded! Import it to your calendar app.', 'success');
+        });
+
+        // Email option
+        emailOption.addEventListener('click', () => {
+            if (!calendarData) return;
+            
+            // First, download the file
+            const blob = new Blob([calendarData], { type: 'text/calendar' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'my-course-schedule.ics';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            // Then open email with instructions
+            setTimeout(() => {
+                const subject = encodeURIComponent('My Course Schedule');
+                const body = encodeURIComponent(`Here's my course schedule calendar file!
+
+I've downloaded the file to my device. Now I'm attaching it to this email.
+
+On iPhone: Tap the attached .ics file and choose "Add All"
+On other devices: Import the .ics file into your calendar app
+
+The file should be in my Downloads folder as: my-course-schedule.ics`);
+                
+                const mailtoLink = `mailto:?subject=${subject}&body=${body}`;
+                window.location.href = mailtoLink;
+            }, 500);
+            
+            showStatus('Calendar file downloaded! Email app opening with instructions - attach the downloaded file and send to yourself.', 'info');
+        });
+    </script>
+</body>
+</html>
